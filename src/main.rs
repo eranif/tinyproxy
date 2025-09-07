@@ -30,6 +30,7 @@ fn handle_connection(mut client: TcpStream, destination_addr: &str) -> io::Resul
             match client_read.read(&mut buffer) {
                 Ok(0) => break, // Connection closed
                 Ok(n) => {
+                    print!("<== {}", String::from_utf8_lossy(&buffer));
                     if server.write_all(&buffer[..n]).is_err() {
                         break;
                     }
@@ -46,6 +47,7 @@ fn handle_connection(mut client: TcpStream, destination_addr: &str) -> io::Resul
             match server_read.read(&mut buffer) {
                 Ok(0) => break, // Connection closed
                 Ok(n) => {
+                    print!("==> {}", String::from_utf8_lossy(&buffer));
                     if client.write_all(&buffer[..n]).is_err() {
                         break;
                     }

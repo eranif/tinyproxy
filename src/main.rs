@@ -1,6 +1,6 @@
 use clap::Parser;
-use log::{debug, error, info, warn};
-use std::io::{self, Read, Write};
+use log::{error, info, warn};
+use std::io::{self};
 use std::net::{TcpListener, TcpStream};
 use std::thread;
 
@@ -30,53 +30,22 @@ fn handle_connection(mut client: TcpStream, destination_addr: &str) -> io::Resul
 
     // Forward client -> server
     let t1 = thread::spawn(move || {
-        let mut buffer = [0; 4096];
-        loop {
-            match client_read.read(&mut buffer) {
-                Ok(0) => {
-                    info!("Client {} closed connection", client_addr);
-                    break;
-                }
-                Ok(n) => {
-                    debug!("<< {}", String::from_utf8_lossy(&buffer));
-                    if server.write_all(&buffer[..n]).is_err() {
-                        warn!("Failed to write to server");
-                        break;
-                    }
-                }
-                Err(e) => {
-                    warn!("Error reading from client {}: {}", client_addr, e);
-                    break;
-                }
-            }
+        if let Err(e) = std::io::copy(&mut client_read, &mut server) {
+            warn!(
+                "Stream copy error while copying data from client [{}] -> server. {}",
+                client_addr, e
+            );
         }
     });
 
     // Forward server -> client
     let client_addr_clone = client_addr;
     let t2 = thread::spawn(move || {
-        let mut buffer = [0; 4096];
-        loop {
-            match server_read.read(&mut buffer) {
-                Ok(0) => {
-                    info!("Server closed connection for client {}", client_addr_clone);
-                    break;
-                }
-                Ok(n) => {
-                    debug!(">> {}", String::from_utf8_lossy(&buffer));
-                    if client.write_all(&buffer[..n]).is_err() {
-                        warn!("Failed to write to client {}", client_addr_clone);
-                        break;
-                    }
-                }
-                Err(e) => {
-                    warn!(
-                        "Error reading from server for client {}: {}",
-                        client_addr_clone, e
-                    );
-                    break;
-                }
-            }
+        if let Err(e) = std::io::copy(&mut server_read, &mut client) {
+            warn!(
+                "Stream copy error while copying data from Server [{}] -> client. {}",
+                client_addr_clone, e
+            );
         }
     });
 
